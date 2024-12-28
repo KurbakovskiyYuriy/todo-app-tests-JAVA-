@@ -98,6 +98,7 @@ given()
     .put("/todos/1")
     .then()
     .statusCode(200);```
+
 - Проверили что задача обновлена
 ```given()
     .when()
