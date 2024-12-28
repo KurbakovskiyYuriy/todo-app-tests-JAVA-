@@ -11,7 +11,7 @@ given()
     .get("/todos")
     .then()
     .statusCode(200)
-    .body(is("[]")); // Проверяем, что возвращается пустой список
+    .body(is("[]"));``` // Проверяем, что возвращается пустой список
 
 
 
@@ -151,6 +151,65 @@ given()
 
 **Цель:** Проверить взаимодействие через WebSocket для получения уведомлений о задачах.
 
+1. Подготовка тестового окружения
+`bash
+docker run -p 8080:4242 -e VERBOSE=1 todo-app`
+
+2.Создаем тестовый файл для WebSocket (WebSocketTest.java)
+`bash
+nano src/test/java/com/example/WebSocketTest.java`
+
+3. Добавляем код теста WebSocket в WebSocketTest.java
+`package com.example;
+
+import org.junit.jupiter.api.Test;
+import java.net.URI;
+import javax.websocket.*;
+
+@ClientEndpoint
+public class WebSocketTest {
+    private static String lastMessage;
+
+    @OnMessage
+    public void onMessage(String message) {
+        lastMessage = message;
+        System.out.println("Received: " + message);
+    }
+
+    @Test
+    public void testWebSocketConnection() throws Exception {
+        WebSocketContainer container = ContainerProvider.getWebSocketContainer();
+        Session session = container.connectToServer(WebSocketTest.class, URI.create("ws://localhost:8080/ws"));
+
+        // Send a new TODO through POST and validate WebSocket notification
+        String todoJson = "{\"id\": 1, \"text\": \"Test TODO\", \"completed\": false}";
+        HttpPostTestHelper.postTodo("http://localhost:8080/todos", todoJson);
+
+        // Wait for the WebSocket message
+        Thread.sleep(2000);
+
+        // Validate the received message
+        assert lastMessage.contains("\"id\":1");
+        session.close();
+    }
+}
+`
+4. Открываем pom.xml
+nano pom.xml
+
+5.Добавляем зависимость для WebSocket API
+```<dependency>
+    <groupId>javax.websocket</groupId>
+    <artifactId>javax.websocket-api</artifactId>
+    <version>1.1</version>
+</dependency>
+```
+6. Собираем проект
+mvn compile
+
+7. Запускаем только WebSocket тесты
+`mvn test -Dtest=WebSocketTest`
+
 **Результат:**
 1. Успешное подключение к WebSocket.
 2. Отправка и получение данных:
@@ -164,7 +223,8 @@ given()
     ```
 
     - Создали задачу через POST-запрос
-```Map<String, Object> newTodo = new HashMap<>();
+```Java
+   Map<String, Object> newTodo = new HashMap<>();
    newTodo.put("id", 2);
    newTodo.put("text", "New TODO");
    newTodo.put("completed", false);
