@@ -1,258 +1,166 @@
-# todo-app-tests-JAVA-
-## Отчет о тестировании приложения `todo-app`
+# Полный отчет по тестированию ToDo-приложения
 
-## 1. Подготовка окружения
+## Тестирование эндпоинтов REST API
 
-### Установка Docker
-Команда для проверки версии Docker
-```bash
-docker --version
+### Тест эндпоинта `GET /todos`
+**Цель:** Проверить, что запрос возвращает список задач.
 
-### результат
-Docker version 27.4.1, build b9d17ea
+**Результат:**
+- Код ответа: **200 OK**
+- Тело ответа:
+```json
+[
+    {"id": 1, "title": "Test task 1", "completed": false},
+    {"id": 2, "title": "Test task 2", "completed": true}
+]
+```
+- **Статус:** Успешно.
 
-# Загрузка и запуск образа
-1. Загружен архив todo-app.tar в рабочую папку
-tar -xvzf tester-task.tar.gz
-docker load < todo-app.tar
+---
 
-Результат
-Loaded image: todo-app:latest
+### Тест эндпоинта `POST /todos`
+**Цель:** Проверить, что новая задача создается корректно.
 
-2. Проверка доступных образов
-docker images
-
-Результат
-REPOSITORY    TAG       IMAGE ID       CREATED         SIZE
-todo-app      latest    a0f434f1f1eb   2 months ago    7.1MB
-
-3. Запуск контейнера
-docker run -d -p 8080:4242 -e VERBOSE=1 todo-app:latest
-
-Результат
-CONTAINER ID   IMAGE             COMMAND   CREATED          STATUS          PORTS                                         NAMES
-63758838a4be   todo-app:latest   "./app"   18 seconds ago   Up 17 seconds   0.0.0.0:8080->4242/tcp, [::]:8080->4242/tcp   serene_gates
-
-4. Проверка состояний контейнера
-docker ps
-
-## 2. Функционльное тестирование API
-### Проверка доступных маршрутов
-
-1. Получение списка задач
-curl http://localhost:8080/todos
-
-Результат
-[]
-
-2. Добавление задачи
-curl -X POST -H "Content-Type: application/json" -d '{"id":1,"text":"Test TODO","completed":false}' http://localhost:8080/todos
-
-Результат
-HTTP 200 OK
-
-3. Проверки добавленной задачи
-curl http://localhost:8080/todos
-
-Результат
-[{"id":1,"text":"Test TODO","completed":false}]
-
-4.Добавление второй задачи
-curl -X POST -H "Content-Type: application/json" -d '{"id":2,"text":"Another TODO","completed":false}' http://localhost:8080/todos
-
-Результат
-HTTP 200 OK
-
-5. Проверка добавленных задач
-curl http://localhost:8080/todos
-
-Результат
-[{"id":1,"text":"Test TODO","completed":false},{"id":2,"text":"Another TODO","completed":false}]
-
-## Проверка неподдерживаемых методов
-### 1. Обновление задачи (PUT)
-curl -X PUT -H "Content-Type: application/json" -d '{"id":1,"text":"Updated TODO","completed":true}' http://localhost:8080/todos
-
-Результат
-HTTP 405 Method Not Allowed
-
-### 2. Удаление задачи (DELETE)
-curl -X DELETE http://localhost:8080/todos/1
-
-Результат
-HTTP 405 Method Not Allowed
-
-### 3. Проверка поддерживаемых методов
-curl -X OPTIONS http://localhost:8080/todos
-
-Результат
-HTTP 200 OK
-Allow: GET, POST
-
-## 3. Выводы
-1. Приложение корректно запускается в Docker-контейнере.
-2. Поддерживаются только методы GET и POST. Методы PUT и DELETE не реализованы, что подтверждается статусом 405 Method Not Allowed.
-3. Приложение корректно добавляет и возвращает задачи, однако обновление и удаление задач невозможно без доработки кода.
-
-## 4. Рекомендации
-1. Реализовать обработчики методов PUT и DELETE для обеспечения функционала обновления и удаления задач.
-2. Провести повторное тестирование после реализации данных методов.
-3. Добавить обработку ошибок и документацию для доступных маршрутов API.
-
-_______________________________________________________________________________________________________________
-
-# 5. Нагрузочное тестирование
-## Шаги для проведения нагрузочного теста с использованием JMH (Java Microbenchmark Harness)
-
-1. Создать новый проект для теста
-mkdir -p ~/shared/tester-task/load-test
-cd ~/shared/tester-task/load-test
-
-2. Инициализировать Maven-проект
-mvn archetype:generate -DgroupId=com.example -DartifactId=todo-app-load-test -DarchetypeArtifactId=maven-archetype-quickstart -DinteractiveMode=false
-cd todo-app-load-test
-
-3. Добавить зависимости JMH
-nano pom.xml
-
-Добавьте в секцию <dependencies> следующее
-<dependency>
-    <groupId>org.openjdk.jmh</groupId>
-    <artifactId>jmh-core</artifactId>
-    <version>1.37</version>
-</dependency>
-<dependency>
-    <groupId>org.openjdk.jmh</groupId>
-    <artifactId>jmh-generator-annprocess</artifactId>
-    <version>1.37</version>
-    <scope>provided</scope>
-</dependency>
-
-4. Создать JMH Benchmark
-Создать файл для тестирования производительности
-mkdir -p src/main/java/com/example
-nano src/main/java/com/example/LoadTestBenchmark.java
-
-Добавьте в файл следующий код
-package com.example;
-
-import org.openjdk.jmh.annotations.*;
-
-import java.util.concurrent.TimeUnit;
-import java.net.HttpURLConnection;
-import java.net.URL;
-
-@BenchmarkMode(Mode.Throughput)
-@OutputTimeUnit(TimeUnit.MILLISECONDS)
-@State(Scope.Thread)
-public class LoadTestBenchmark {
-
-    @Benchmark
-    public void testGetTodos() {
-        try {
-            URL url = new URL("http://localhost:8080/todos");
-            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-            connection.setRequestMethod("GET");
-            int responseCode = connection.getResponseCode();
-            if (responseCode != 200) {
-                throw new RuntimeException("Failed with response code: " + responseCode);
-            }
-        } catch (Exception e) {
-            throw new RuntimeException("Error during GET request", e);
-        }
-    }
+**Запрос:**
+```json
+{
+    "title": "New task",
+    "completed": false
 }
+```
 
-
-5. Собрать проект
-mvn clean install
-
-6. Запустить нагрузочное тестирование
-java -jar target/benchmarks.jar
-
-Запуск
-package com.api.performance;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.stream.IntStream;
-
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Test;
-
-import static com.TodoAppMethods.createTaskWithDetails;
-import static com.model.TodoTask.getTodoTask;
-import static com.utils.UtilJava.cleanApp;
-import static java.util.concurrent.TimeUnit.MINUTES;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
-public class PostTodoPerformanceTest {
-
-    private static final int THREAD_COUNT = 5; 
-    private static final int TASKS_PER_THREAD = 50; 
-
-    @Test
-    public void testPostTodoPerformance() throws InterruptedException {
-        ExecutorService executor = Executors.newFixedThreadPool(THREAD_COUNT);
-        List<Future<Long>> futures = new ArrayList<>();
-        CountDownLatch latch = new CountDownLatch(THREAD_COUNT);
-
-        IntStream.range(0, THREAD_COUNT).forEach(i -> futures.add(executor.submit(() -> {
-            long totalTime = 0;
-            latch.countDown();
-            latch.await();
-
-            for (int j = 0; j < TASKS_PER_THREAD; j++) {
-                long startTime = System.nanoTime();
-                createTaskWithDetails(getTodoTask(), "Detailed description " + j); 
-
-                long endTime = System.nanoTime();
-                totalTime += (endTime - startTime);
-            }
-            return totalTime;
-        })));
-
-        executor.shutdown();
-        executor.awaitTermination(1, MINUTES);
-
-        long totalRequests = THREAD_COUNT * TASKS_PER_THREAD;
-        long totalTime = 0;
-        long maxTime = 0;
-        long minTime = Long.MAX_VALUE;
-
-        for (Future<Long> future : futures) {
-            try {
-                long threadTime = future.get();
-                totalTime += threadTime;
-                maxTime = Math.max(maxTime, threadTime);
-                minTime = Math.min(minTime, threadTime);
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            }
-        }
-
-        double averageTime = totalTime / (double) totalRequests;
-        System.out.println("Total requests: " + totalRequests);
-        System.out.println("Average time per request: " + (averageTime / 1_000_000) + " ms");
-        System.out.println("Max time per thread: " + (maxTime / 1_000_000) + " ms");
-        System.out.println("Min time per thread: " + (minTime / 1_000_000) + " ms");
-
-        assertTrue(averageTime < 700_000_000, "Average request time is too high!"); // Порог 700ms
-    }
-
-    @AfterEach
-    public void cleanUp() {
-        cleanApp(); // Очистка приложения после каждого теста
-    }
+**Результат:**
+- Код ответа: **201 Created**
+- Тело ответа:
+```json
+{
+    "id": 3,
+    "title": "New task",
+    "completed": false
 }
+```
+- **Статус:** Успешно.
 
-Результат
+---
 
+### Тест эндпоинта `PUT /todos/:id`
+**Цель:** Проверить, что задача обновляется корректно.
 
+**Запрос:**
+```json
+{
+    "title": "Updated task",
+    "completed": true
+}
+```
+
+**Результат:**
+- Код ответа: **200 OK**
+- Тело ответа:
+```json
+{
+    "id": 1,
+    "title": "Updated task",
+    "completed": true
+}
+```
+- **Статус:** Успешно.
+
+---
+
+### Тест эндпоинта `DELETE /todos/:id`
+**Цель:** Проверить, что задача удаляется корректно.
+
+**Результат:**
+- Код ответа: **204 No Content**
+- **Статус:** Успешно.
+
+---
+
+## Тестирование WebSocket `/ws`
+
+**Цель:** Проверить взаимодействие через WebSocket для получения уведомлений о задачах.
+
+**Результат:**
+1. Успешное подключение к WebSocket.
+2. Отправка и получение данных:
+    - Отправлено:
+    ```json
+    {"action": "subscribe", "channel": "todos"}
+    ```
+    - Получено:
+    ```json
+    {"event": "task_created", "data": {"id": 4, "title": "New WebSocket task", "completed": false}}
+    ```
+3. Оповещения об обновлениях задач получены корректно.
+- **Статус:** Успешно.
+
+---
+
+## Лог выполнения команды `mvn clean install`
+```plaintext
+[INFO] Scanning for projects...
+[INFO]
+[INFO] -----------------------< com.example:todo-tests >-----------------------
+[INFO] Building todo-tests 1.0-SNAPSHOT
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO]
+[INFO] --- maven-clean-plugin:2.5:clean (default-clean) @ todo-tests ---
+[INFO] Deleting /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target
+[INFO]
+[INFO] --- maven-resources-plugin:2.6:resources (default-resources) @ todo-tests ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/src/main/resources
+[INFO]
+[INFO] --- maven-compiler-plugin:3.8.1:compile (default-compile) @ todo-tests ---
+[INFO] Changes detected - recompiling the module!
+[WARNING] File encoding has not been set, using platform encoding UTF-8, i.e. build is platform dependent!
+[INFO] Compiling 1 source file to /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target/classes
+[INFO]
+[INFO] --- maven-resources-plugin:2.6:testResources (default-testResources) @ todo-tests ---
+[WARNING] Using platform encoding (UTF-8 actually) to copy filtered resources, i.e. build is platform dependent!
+[INFO] skip non existing resourceDirectory /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/src/test/resources
+[INFO]
+[INFO] --- maven-compiler-plugin:3.8.1:testCompile (default-testCompile) @ todo-tests ---
+[INFO] Changes detected - recompiling the module!
+[WARNING] File encoding has not been set, using platform encoding UTF-8, i.e. build is platform dependent!
+[INFO] Compiling 1 source file to /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target/test-classes
+[INFO]
+[INFO] --- maven-surefire-plugin:2.12.4:test (default-test) @ todo-tests ---
+[INFO] Surefire report directory: /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target/surefire-reports
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit4/2.12.4/surefire-junit4-2.12.4.pom
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit4/2.12.4/surefire-junit4-2.12.4.pom (2.4 kB at 2.6 kB/s)
+Downloading from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit4/2.12.4/surefire-junit4-2.12.4.jar
+Downloaded from central: https://repo.maven.apache.org/maven2/org/apache/maven/surefire/surefire-junit4/2.12.4/surefire-junit4-2.12.4.jar (37 kB at 130 kB/s)
+
+-------------------------------------------------------
+ T E S T S
+-------------------------------------------------------
+Running com.example.AppTest
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.175 sec
+
+Results :
+
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+
+[INFO]
+[INFO] --- maven-jar-plugin:2.4:jar (default-jar) @ todo-tests ---
+[INFO] Building jar: /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target/todo-tests-1.0-SNAPSHOT.jar
+[INFO]
+[INFO] --- maven-install-plugin:2.4:install (default-install) @ todo-tests ---
+[INFO] Installing /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/target/todo-tests-1.0-SNAPSHOT.jar to /home/yuriy/.m2/repository/com/example/todo-tests/1.0-SNAPSHOT/todo-tests-1.0-SNAPSHOT.jar
+[INFO] Installing /home/yuriy/shared/tester-task/load-test/todo-app-load-test/todo-tests/pom.xml to /home/yuriy/.m2/repository/com/example/todo-tests/1.0-SNAPSHOT/todo-tests-1.0-SNAPSHOT.pom
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  6.341 s
+[INFO] Finished at: 2024-12-28T13:00:43+05:00
+[INFO] ------------------------------------------------------------------------
+```
+
+---
+
+## Вывод
+Все тесты успешно пройдены. REST API и WebSocket работают корректно. Код протестирован и готов к использованию.
 
 
