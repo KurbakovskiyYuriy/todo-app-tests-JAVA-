@@ -5,7 +5,18 @@
 ### Тест эндпоинта `GET /todos`
 **Цель:** Проверить, что запрос возвращает список задач.
 
+```java
+given()
+    .when()
+    .get("/todos")
+    .then()
+    .statusCode(200)
+    .body(is("[]")); // Проверяем, что возвращается пустой список
+
+
+
 **Результат:**
+- Эндпоинт корректно возвращает пустой список задач.
 - Код ответа: **200 OK**
 - Тело ответа:
 ```json
@@ -28,6 +39,28 @@
     "completed": false
 }
 ```
+```Map<String, Object> newTodo = new HashMap<>();
+newTodo.put("id", 1);
+newTodo.put("text", "Test TODO");
+newTodo.put("completed", false);
+
+given()
+    .contentType("application/json")
+    .body(newTodo)
+    .when()
+    .post("/todos")
+    .then()
+    .statusCode(200);```
+
+- Проверили что задача появилась в списке
+given()
+    .when()
+    .get("/todos")
+    .then()
+    .statusCode(200)
+    .body("size()", is(1))
+    .body("[0].text", is("Test TODO"));
+
 
 **Результат:**
 - Код ответа: **201 Created**
@@ -53,6 +86,26 @@
     "completed": true
 }
 ```
+```Map<String, Object> updatedTodo = new HashMap<>();
+updatedTodo.put("id", 1);
+updatedTodo.put("text", "Updated TODO");
+updatedTodo.put("completed", true);
+
+given()
+    .contentType("application/json")
+    .body(updatedTodo)
+    .when()
+    .put("/todos/1")
+    .then()
+    .statusCode(200);```
+- Проверили что задача обновлена
+```given()
+    .when()
+    .get("/todos")
+    .then()
+    .statusCode(200)
+    .body("[0].text", is("Updated TODO"))
+    .body("[0].completed", is(true));```
 
 **Результат:**
 - Код ответа: **200 OK**
@@ -70,6 +123,21 @@
 
 ### Тест эндпоинта `DELETE /todos/:id`
 **Цель:** Проверить, что задача удаляется корректно.
+- Отправили DELETE-запрос с авторизацией
+```given()
+    .auth().basic("admin", "admin")
+    .when()
+    .delete("/todos/1")
+    .then()
+    .statusCode(200);```
+- Проверили, что задачи больше нет в списке
+  ```given()
+    .when()
+    .get("/todos")
+    .then()
+    .statusCode(200)
+    .body(is("[]"));```
+
 
 **Результат:**
 - Код ответа: **204 No Content**
@@ -92,6 +160,21 @@
     ```json
     {"event": "task_created", "data": {"id": 4, "title": "New WebSocket task", "completed": false}}
     ```
+
+    - Создали задачу через POST-запрос
+```Map<String, Object> newTodo = new HashMap<>();
+   newTodo.put("id", 2);
+   newTodo.put("text", "New TODO");
+   newTodo.put("completed", false);
+
+given()
+    .contentType("application/json")
+    .body(newTodo)
+    .when()
+    .post("/todos")
+    .then()
+    .statusCode(200);```
+
 3. Оповещения об обновлениях задач получены корректно.
 - **Статус:** Успешно.
 
