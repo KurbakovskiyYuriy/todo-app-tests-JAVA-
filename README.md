@@ -131,6 +131,7 @@ given()
     .delete("/todos/1")
     .then()
     .statusCode(200);```
+
 - Проверили, что задачи больше нет в списке
   ```given()
     .when()
